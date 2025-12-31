@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { initDB, addVideo, getVideos } from "./db";
+import { Download, FolderOpen, RefreshCw, AlertCircle, CheckCircle2, Play, Trash2, X } from "lucide-react";
+import { initDB, addVideo, getVideos, clearLibrary } from "./db";
 import "./App.css";
 
 interface Video {
@@ -17,40 +18,29 @@ interface Video {
 function App() {
   const [url, setUrl] = useState("");
   const [library, setLibrary] = useState<Video[]>([]);
-  
-  // ✅ FIXED: Added this missing line
   const [isDownloading, setIsDownloading] = useState(false);
+  
+  // New State for the Custom Modal
+  const [showClearModal, setShowClearModal] = useState(false);
 
-  // 1. Setup Event Listeners on Mount
   useEffect(() => {
     initDB().then(refreshLibrary);
 
-    // Listen for Progress Updates
     const unlistenProgress = listen("download-progress", (event: any) => {
-      const payload = event.payload; 
-      
+      const p = event.payload; 
       setLibrary((prev) => 
-        prev.map((item) => {
-          if (item.id === payload.id) {
-            return { 
-              ...item, 
-              progress: payload.progress, 
-              speed: payload.speed, 
-              eta: payload.eta 
-            };
-          }
-          return item;
-        })
+        prev.map((item) => item.id === p.id ? { 
+            ...item, 
+            progress: p.progress, 
+            speed: p.speed, 
+            eta: p.eta 
+        } : item)
       );
     });
 
-    // Listen for Completion
     const unlistenFinished = listen("download-finished", (event: any) => {
-      const id = event.payload; 
       setLibrary((prev) =>
-        prev.map((item) =>
-          item.id === id ? { ...item, status: "completed", progress: 100, eta: "Done" } : item
-        )
+        prev.map((item) => item.id === event.payload ? { ...item, status: "completed", progress: 100, eta: "Done" } : item)
       );
     });
 
@@ -72,106 +62,186 @@ function App() {
     setLibrary(loadedVideos);
   }
 
-  async function handleAdd() {
-    if (!url) return;
+  // Updated: Just opens the modal, doesn't delete yet
+  function requestClearHistory() {
+    setShowClearModal(true);
+  }
 
+  // Updated: Actually performs the delete
+  async function confirmClearHistory() {
+    await clearLibrary();
+    setLibrary([]); 
+    setShowClearModal(false);
+  }
+
+  async function startDownload(videoUrl: string) {
+    if (!videoUrl) return;
+    setIsDownloading(true);
+    
     const tempId = Date.now();
+    let realTitle = "Fetching Info...";
+
+    try {
+        realTitle = await invoke("get_video_title", { url: videoUrl });
+    } catch (e) { console.log("Title fetch failed", e); }
+
     const newItem: Video = {
       id: tempId,
-      url,
-      title: "Starting...",
+      url: videoUrl,
+      title: realTitle,
       progress: 0,
-      speed: "...",
-      eta: "...",
+      speed: "Starting...",
+      eta: "--:--",
       status: "downloading",
     };
 
     setLibrary((prev) => [newItem, ...prev]);
     setUrl("");
-    setIsDownloading(true);
 
     try {
       await invoke("download_video", { id: tempId, url: newItem.url });
-      await addVideo(newItem.url, "Downloaded Video");
+      await addVideo(newItem.url, realTitle); 
       await refreshLibrary();
     } catch (error) {
-      console.error("Download failed:", error);
-      
       setLibrary((prev) =>
-        prev.map((item) =>
-          item.id === tempId ? { 
-              ...item, 
-              status: "error", 
-              title: `Error: ${error}`, 
-              speed: "Failed",
-              eta: "X"
-          } : item
-        )
+        prev.map((item) => item.id === tempId ? { 
+            ...item, status: "error", title: `Error: ${error}`, speed: "Failed", eta: "" 
+        } : item)
       );
     } finally {
       setIsDownloading(false);
     }
   }
 
-  const downloadingItems = library.filter((v) => v.status === "downloading" || v.status === "error"); // Show errors in top list
+  async function openDownloads() {
+    try {
+        await invoke("open_ryt_folder");
+    } catch (e) { 
+        console.error(e);
+        alert("Could not open folder. Check if 'RYT-Downloads' exists.");
+    }
+  }
+
+  const downloadingItems = library.filter((v) => v.status === "downloading" || v.status === "error");
   const completedItems = library.filter((v) => v.status === "completed");
 
   return (
     <div className="app-container">
-      <div className="header"><div className="brand">RYT-Downloader</div></div>
+      <header className="app-header">
+        <div className="brand">
+            <Play fill="white" size={24} className="brand-icon" />
+            <span>RYT-Downloader</span>
+        </div>
+        <div style={{display: 'flex', gap: '10px'}}>
+            <button className="icon-btn" onClick={openDownloads} title="Open Folder">
+                <FolderOpen size={20} />
+            </button>
+            {/* Opens the custom modal now */}
+            <button className="icon-btn danger" onClick={requestClearHistory} title="Clear History">
+                <Trash2 size={20} />
+            </button>
+        </div>
+      </header>
 
-      <div className="input-group">
-        <input 
-            className="url-input" 
-            value={url} 
-            onChange={(e) => setUrl(e.target.value)} 
-            placeholder="Video URL" 
-            disabled={isDownloading} // Disable input while working
-        />
-        <button 
-            className="add-btn" 
-            onClick={handleAdd} 
-            disabled={!url || isDownloading} // Disable button while working
-        >
-            {isDownloading ? "..." : "Add"}
-        </button>
+      <div className="input-section">
+        <div className="input-wrapper">
+            <input 
+                value={url} 
+                onChange={(e) => setUrl(e.target.value)} 
+                placeholder="Paste YouTube Link here..." 
+                disabled={isDownloading}
+            />
+            <button 
+                className="primary-btn" 
+                onClick={() => startDownload(url)} 
+                disabled={!url || isDownloading}
+            >
+                {isDownloading ? <RefreshCw className="spin" size={20} /> : <Download size={20} />}
+                <span>Download</span>
+            </button>
+        </div>
       </div>
 
-      <h2 className="section-header">Downloading</h2>
-      <div className="download-list">
-        {downloadingItems.map((video) => (
-          <div key={video.id} className="download-item" style={video.status === 'error' ? {borderColor: '#ff5252'} : {}}>
-            <div className="item-title" style={video.status === 'error' ? {color: '#ff5252'} : {}}>{video.status === 'error' ? video.title : video.url}</div>
-            
-            {/* Progress Bar UI */}
-            {video.status !== 'error' && (
-                <div style={{flex: 2, marginRight: '15px'}}>
-                    <div style={{background: '#444', height: '6px', borderRadius: '3px', width: '100%'}}>
-                        <div style={{
-                            width: `${video.progress}%`, 
-                            background: '#3ea6ff', 
-                            height: '100%', 
-                            transition: 'width 0.2s'
-                        }} />
+      {downloadingItems.length > 0 && (
+        <section className="section">
+            <h3>Active Queue</h3>
+            <div className="card-list">
+                {downloadingItems.map((video) => (
+                    <div key={video.id} className={`card ${video.status}`}>
+                        <div className="card-info">
+                            <div className="card-header">
+                                <span className="card-title">{video.title}</span>
+                                {video.status === 'error' && <AlertCircle color="#ff5252" size={18} />}
+                            </div>
+                            {video.status !== 'error' && (
+                                <div className="progress-track">
+                                    <div className="progress-fill" style={{ width: `${video.progress}%` }}></div>
+                                </div>
+                            )}
+                            <div className="meta-row">
+                                <span className="meta-pill">{video.speed}</span>
+                                <span className="meta-pill">{video.eta}</span>
+                                <span className="meta-percent">{video.progress.toFixed(0)}%</span>
+                            </div>
+                        </div>
+                        {video.status === 'error' && (
+                            <button className="retry-btn" onClick={() => startDownload(video.url)}><RefreshCw size={18} /></button>
+                        )}
                     </div>
-                </div>
+                ))}
+            </div>
+        </section>
+      )}
+
+      <section className="section">
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+            <h3>Library</h3>
+        </div>
+        <div className="card-list">
+            {completedItems.length === 0 ? (
+                <div className="empty-state">Library empty.</div>
+            ) : (
+                completedItems.map((video) => (
+                    <div key={video.id} className="card completed">
+                        <div className="icon-box"><CheckCircle2 color="#4caf50" size={24} /></div>
+                        <div className="card-info">
+                            <span className="card-title">{video.title}</span>
+                            <span className="card-subtitle">{video.url}</span>
+                        </div>
+                    </div>
+                ))
             )}
+        </div>
+      </section>
 
-            <div className="item-meta">{video.speed}</div>
-            <div className="item-meta">{video.eta}</div>
-          </div>
-        ))}
-      </div>
-
-      <h2 className="section-header">Completed</h2>
-      <div className="download-list">
-        {completedItems.map((video) => (
-          <div key={video.id} className="download-item item-completed">
-            <div className="item-title">{video.title}</div>
-            <div className="item-status">Completed</div>
-          </div>
-        ))}
-      </div>
+      {/* --- CUSTOM MODAL --- */}
+      {showClearModal && (
+        <div className="modal-overlay">
+            <div className="modal-content">
+                <div className="modal-header">
+                    <h4>Clear History?</h4>
+                    <button className="close-btn" onClick={() => setShowClearModal(false)}>
+                        <X size={18} />
+                    </button>
+                </div>
+                <p className="modal-body">
+                    Are you sure you want to clear your download history? 
+                    <br/><br/>
+                    <span style={{color: '#a1a1aa', fontSize: '0.9em'}}>
+                        (Actual video files in RYT-Downloads will <b>not</b> be deleted)
+                    </span>
+                </p>
+                <div className="modal-actions">
+                    <button className="cancel-btn" onClick={() => setShowClearModal(false)}>
+                        Cancel
+                    </button>
+                    <button className="danger-btn-solid" onClick={confirmClearHistory}>
+                        Clear History
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 }

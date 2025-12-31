@@ -25,3 +25,4 @@ serde_json = "1"
 tauri-plugin-shell = "2"
 tauri-plugin-sql = { version = "2.0.0", features = ["sqlite"] }
 regex = "1.10"
+open = "5"

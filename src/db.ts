@@ -1,11 +1,9 @@
 import Database from "@tauri-apps/plugin-sql";
 
-// 1. Open the database (it creates 'library.db' file automatically)
 async function getDb() {
   return await Database.load("sqlite:library.db");
 }
 
-// 2. Create the table if it doesn't exist
 export async function initDB() {
   const db = await getDb();
   await db.execute(`
@@ -18,7 +16,6 @@ export async function initDB() {
   `);
 }
 
-// 3. Add a video to the library
 export async function addVideo(url: string, title: string) {
   const db = await getDb();
   await db.execute(
@@ -27,8 +24,13 @@ export async function addVideo(url: string, title: string) {
   );
 }
 
-// 4. Get all videos
 export async function getVideos() {
   const db = await getDb();
   return await db.select("SELECT * FROM videos ORDER BY date_added DESC");
+}
+
+// --- NEW FUNCTION ---
+export async function clearLibrary() {
+  const db = await getDb();
+  await db.execute("DELETE FROM videos");
 }
