@@ -1,0 +1,143 @@
+:root {
+  --bg-color: #121212;
+  --card-bg: #1e1e1e;
+  --text-primary: #e0e0e0;
+  --text-secondary: #aaaaaa;
+  --accent-blue: #3ea6ff;
+  --accent-blue-hover: #2c7bb6;
+  --border-color: #333333;
+  --success-color: #4caf50;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.app-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Header & Input Section */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.brand {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: white;
+}
+
+.input-group {
+  display: flex;
+  gap: 0; /* Connected inputs */
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto 40px auto;
+}
+
+.url-input {
+  flex: 1;
+  padding: 12px 15px;
+  border-radius: 4px 0 0 4px;
+  border: 1px solid var(--border-color);
+  background-color: #2a2a2a;
+  color: white;
+  font-size: 1rem;
+  outline: none;
+}
+
+.url-input:focus {
+  border-color: var(--accent-blue);
+}
+
+.add-btn {
+  padding: 12px 25px;
+  background-color: var(--accent-blue);
+  color: white;
+  border: none;
+  border-radius: 0 4px 4px 0;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+
+.add-btn:hover {
+  background-color: var(--accent-blue-hover);
+}
+
+.add-btn:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+}
+
+/* Section Headers */
+.section-header {
+  font-size: 1.4rem;
+  color: var(--text-secondary);
+  margin-bottom: 15px;
+  font-weight: 300;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 10px;
+}
+
+/* Table / List Styling */
+.download-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 40px;
+}
+
+.download-item {
+  display: grid;
+  grid-template-columns: 3fr 1fr 1fr 1fr; /* Title, Status, Speed, ETA */
+  align-items: center;
+  background-color: var(--card-bg);
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.item-title {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 15px;
+}
+
+.item-status {
+  font-size: 0.9rem;
+  color: var(--accent-blue);
+}
+
+.item-completed .item-status {
+  color: var(--success-color);
+}
+
+.item-meta {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 20px;
+  font-style: italic;
+}
